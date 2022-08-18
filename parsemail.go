@@ -121,18 +121,24 @@ func parseMultipartRelated(msg io.Reader, boundary string) (textBody, htmlBody s
 
 		switch contentType {
 		case contentTypeTextPlain:
-			ppContent, err := ioutil.ReadAll(part)
+			decoded, err := decodeContent(part, part.Header.Get("Content-Transfer-Encoding"))
+			if err != nil && err != ErrUnknownEncoding {
+				return textBody, htmlBody, embeddedFiles, err
+			}
+			ppContent, err := ioutil.ReadAll(decoded)
 			if err != nil {
 				return textBody, htmlBody, embeddedFiles, err
 			}
-
 			textBody += strings.TrimSuffix(string(ppContent[:]), "\n")
 		case contentTypeTextHtml:
-			ppContent, err := ioutil.ReadAll(part)
+			decoded, err := decodeContent(part, part.Header.Get("Content-Transfer-Encoding"))
+			if err != nil && err != ErrUnknownEncoding {
+				return textBody, htmlBody, embeddedFiles, err
+			}
+			ppContent, err := ioutil.ReadAll(decoded)
 			if err != nil {
 				return textBody, htmlBody, embeddedFiles, err
 			}
-
 			htmlBody += strings.TrimSuffix(string(ppContent[:]), "\n")
 		case contentTypeMultipartAlternative:
 			tb, hb, ef, err := parseMultipartAlternative(part, params["boundary"])
@@ -178,18 +184,24 @@ func parseMultipartAlternative(msg io.Reader, boundary string) (textBody, htmlBo
 
 		switch contentType {
 		case contentTypeTextPlain:
-			ppContent, err := ioutil.ReadAll(part)
+			decoded, err := decodeContent(part, part.Header.Get("Content-Transfer-Encoding"))
+			if err != nil && err != ErrUnknownEncoding {
+				return textBody, htmlBody, embeddedFiles, err
+			}
+			ppContent, err := ioutil.ReadAll(decoded)
 			if err != nil {
 				return textBody, htmlBody, embeddedFiles, err
 			}
-
 			textBody += strings.TrimSuffix(string(ppContent[:]), "\n")
 		case contentTypeTextHtml:
-			ppContent, err := ioutil.ReadAll(part)
+			decoded, err := decodeContent(part, part.Header.Get("Content-Transfer-Encoding"))
+			if err != nil && err != ErrUnknownEncoding {
+				return textBody, htmlBody, embeddedFiles, err
+			}
+			ppContent, err := ioutil.ReadAll(decoded)
 			if err != nil {
 				return textBody, htmlBody, embeddedFiles, err
 			}
-
 			htmlBody += strings.TrimSuffix(string(ppContent[:]), "\n")
 		case contentTypeMultipartRelated:
 			tb, hb, ef, err := parseMultipartRelated(part, params["boundary"])
@@ -344,6 +356,8 @@ func decodeAttachment(part *multipart.Part) (at Attachment, err error) {
 	return
 }
 
+var ErrUnknownEncoding = fmt.Errorf("unknown encoding")
+
 func decodeContent(content io.Reader, encoding string) (io.Reader, error) {
 	switch encoding {
 	case "base64":
@@ -364,7 +378,7 @@ func decodeContent(content io.Reader, encoding string) (io.Reader, error) {
 	case "":
 		return content, nil
 	default:
-		return nil, fmt.Errorf("unknown encoding: %s", encoding)
+		return content, ErrUnknownEncoding
 	}
 }
 
